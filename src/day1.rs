@@ -26,22 +26,6 @@ pub fn part1(input: &str) -> anyhow::Result<u32> {
     itertools::process_results(values, |values| values.sum())
 }
 
-struct StringTails<'a> {
-    string: &'a str,
-}
-
-impl<'a> Iterator for StringTails<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut chars = self.string.chars();
-        let _ = chars.next()?;
-        let item = self.string;
-        self.string = chars.as_str();
-        Some(item)
-    }
-}
-
 fn match_prefix_digit(string: &str) -> Option<u32> {
     [
         ["zero", "0"],
