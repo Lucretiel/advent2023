@@ -8,6 +8,8 @@ use std::{
 };
 
 use brownstone::move_builder::{ArrayBuilder, PushResult};
+use nom::{error::ParseError, Parser};
+use nom_supreme::{error::ErrorTree, tag::TagError};
 
 #[macro_export]
 macro_rules! express {
@@ -58,11 +60,13 @@ impl<T: Hash + Eq> Counter<T> {
 
     pub fn top<const N: usize>(&self) -> Option<[(&T, usize); N]> {
         let mut iter = self.counts.iter().map(|(key, &value)| (key, value));
-        let mut buffer = brownstone::build![iter.next()?];
+        let mut buffer = try_build_iter(&mut iter)?;
         buffer.sort_unstable_by_key(|&(_, count)| Reverse(count));
 
         iter.for_each(|(item, count)| {
-            let Some(last) = buffer.last_mut() else { return };
+            let Some(last) = buffer.last_mut() else {
+                return;
+            };
             if last.1 < count {
                 *last = (item, count);
 
@@ -205,8 +209,6 @@ pub trait IterExt: Iterator + Sized {
             error: destination,
         }
     }
-
-    
 }
 
 impl<T: Iterator + Sized> IterExt for T {}
@@ -396,3 +398,91 @@ where
 }
 
 pub type Definitely<T> = Result<T, Infallible>;
+
+pub trait ErrorWithLocation<I> {
+    fn map_location(self, map: impl Fn(I) -> I) -> Self;
+}
+
+impl<I> ErrorWithLocation<I> for ErrorTree<I> {
+    fn map_location(self, map: impl Fn(I) -> I) -> Self {
+        self.map_locations(map)
+    }
+}
+
+pub fn split_parser_fold<'i, 's, O, T, E>(
+    mut item_parser: impl Parser<&'i str, O, E> + 's,
+    separator: &'s str,
+    mut init: impl FnMut() -> T + 's,
+    mut fold: impl FnMut(T, O) -> T + 's,
+) -> impl Parser<&'i str, T, E> + 's
+where
+    E: ErrorWithLocation<&'i str>,
+    E: TagError<&'i str, &'s str>,
+    E: ParseError<&'i str>,
+{
+    if separator.is_empty() {
+        panic!("can't create a split parser with an empty separator")
+    }
+
+    move |mut input: &'i str| {
+        let mut accum = init();
+
+        loop {
+            let (block, tail) = match input.split_once(separator) {
+                None if input.is_empty() => return Ok(("", accum)),
+                None => (input, ""),
+                Some(pair) => pair,
+            };
+
+            let rebuild_tail = |local_tail_len: usize| {
+                let rebuilt_tail_len = tail.len() + separator.len() + local_tail_len;
+                let parsed_len = input.len() - rebuilt_tail_len;
+                &input[parsed_len..]
+            };
+
+            let item = match item_parser.parse(block) {
+                Ok(("", item)) => item,
+                Ok((local_tail, _)) => {
+                    return Err(nom::Err::Error(E::from_tag(
+                        rebuild_tail(local_tail.len()),
+                        separator,
+                    )));
+                }
+                Err(nom::Err::Error(err)) => {
+                    return Err(nom::Err::Error(
+                        err.map_location(|local_tail| rebuild_tail(local_tail.len())),
+                    ))
+                }
+                Err(nom::Err::Failure(err)) => {
+                    return Err(nom::Err::Failure(
+                        err.map_location(|local_tail| rebuild_tail(local_tail.len())),
+                    ))
+                }
+                Err(nom::Err::Incomplete(_)) => {
+                    return Err(nom::Err::Error(E::from_error_kind(
+                        rebuild_tail(0),
+                        nom::error::ErrorKind::Complete,
+                    )))
+                }
+            };
+
+            accum = fold(accum, item);
+            input = tail;
+        }
+    }
+}
+
+pub fn split_parser<'i, 's, O, T, E>(
+    item_parser: impl Parser<&'i str, O, E> + 's,
+    separator: &'s str,
+) -> impl Parser<&'i str, T, E> + 's
+where
+    E: ErrorWithLocation<&'i str>,
+    E: TagError<&'i str, &'s str>,
+    E: ParseError<&'i str>,
+    T: Default + Extend<O> + 's,
+{
+    split_parser_fold(item_parser, separator, T::default, |collection, item| {
+        express!(collection.extend([item]))
+    })
+}
