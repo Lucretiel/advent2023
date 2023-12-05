@@ -11,6 +11,8 @@ use brownstone::move_builder::{ArrayBuilder, PushResult};
 use nom::{error::ParseError, Parser};
 use nom_supreme::{error::ErrorTree, tag::TagError};
 
+use self::dynamic::SubtaskStore;
+
 #[macro_export]
 macro_rules! express {
     ($receiver:ident $(.$method:ident($($args:tt)*))*) => {
@@ -47,15 +49,27 @@ impl<T: Hash + Eq> Counter<T> {
     }
 
     pub fn contains(&self, value: &T) -> bool {
-        self.counts.contains_key(value)
+        self.counts.contains(value)
+    }
+
+    pub fn get(&self, value: &T) -> usize {
+        self.counts.get(value).copied().unwrap_or(0)
     }
 
     pub fn items(&self) -> impl Iterator<Item = &T> + FusedIterator + ExactSizeIterator + Clone {
         self.counts.keys()
     }
 
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&T, usize)> + FusedIterator + ExactSizeIterator + Clone {
+        self.counts.iter().map(|(key, &count)| (key, count))
+    }
+
     pub fn add(&mut self, item: T, count: usize) {
-        *self.counts.entry(item).or_insert(0) += count
+        if count > 0 {
+            *self.counts.entry(item).or_insert(0) += count
+        }
     }
 
     pub fn top<const N: usize>(&self) -> Option<[(&T, usize); N]> {
