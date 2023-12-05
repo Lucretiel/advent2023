@@ -8,7 +8,7 @@ use std::{
 };
 
 use brownstone::move_builder::{ArrayBuilder, PushResult};
-use nom::{error::ParseError, Parser};
+use nom::{error::ParseError, IResult, Parser};
 use nom_supreme::{error::ErrorTree, tag::TagError};
 
 use self::dynamic::SubtaskStore;
@@ -500,3 +500,5 @@ where
         express!(collection.extend([item]))
     })
 }
+
+pub type ITResult<I, O> = IResult<I, O, ErrorTree<I>>;
