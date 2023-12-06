@@ -44,7 +44,7 @@ impl<K: Ord, V> SubtaskStore<K, V> for BTreeMap<K, V> {
         self.insert(goal, solution)
     }
 
-    fn get<'a>(&'a self, goal: &K) -> Option<&V> {
+    fn get(&self, goal: &K) -> Option<&V> {
         self.get(goal)
     }
 
@@ -156,7 +156,7 @@ struct Subtasker<S> {
     store: S,
 }
 
-impl<'a, K, V, S> Subtask<K, V> for Subtasker<S>
+impl<K, V, S> Subtask<K, V> for Subtasker<S>
 where
     S: SubtaskStore<K, V>,
 {

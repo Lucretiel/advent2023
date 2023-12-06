@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::Infallible};
+use std::collections::HashMap;
 
 use gridly::prelude::*;
 use itertools::Itertools as _;

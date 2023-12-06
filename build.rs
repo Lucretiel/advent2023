@@ -66,7 +66,9 @@ fn main() {
         .flat_map(|&day| [(day, 1), (day, 2)])
         .map(|(day, part)| {
             lazy_format!(
-                "(Day::Day{day}, Part::Part{part}) => input
+                "#[allow(clippy::unnecessary_fallible_conversions)]
+                #[allow(clippy::useless_conversion)]
+                (Day::Day{day}, Part::Part{part}) => input
                     .try_into()
                     .map(|input| {{
                         if show_input {{

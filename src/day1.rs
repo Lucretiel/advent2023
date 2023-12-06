@@ -44,10 +44,10 @@ fn match_prefix_digit(string: &str) -> Option<u32> {
     .map(|idx| idx as u32)
 }
 
-fn digit_stream(s: &str) -> impl Iterator<Item = u32> + DoubleEndedIterator + '_ {
+fn digit_stream(s: &str) -> impl DoubleEndedIterator<Item = u32> + '_ {
     (0..s.len())
         .filter_map(|idx| s.get(idx..))
-        .filter_map(|substring| match_prefix_digit(substring))
+        .filter_map(match_prefix_digit)
 }
 
 pub fn part2(input: &str) -> anyhow::Result<u32> {

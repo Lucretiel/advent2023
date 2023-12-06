@@ -57,13 +57,11 @@ impl<T: Hash + Eq> Counter<T> {
         self.counts.get(value).copied().unwrap_or(0)
     }
 
-    pub fn items(&self) -> impl Iterator<Item = &T> + FusedIterator + ExactSizeIterator + Clone {
+    pub fn items(&self) -> impl FusedIterator<Item = &T> + ExactSizeIterator + Clone {
         self.counts.keys()
     }
 
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&T, usize)> + FusedIterator + ExactSizeIterator + Clone {
+    pub fn iter(&self) -> impl FusedIterator<Item = (&T, usize)> + ExactSizeIterator + Clone {
         self.counts.iter().map(|(key, &count)| (key, count))
     }
 
