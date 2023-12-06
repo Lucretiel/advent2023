@@ -131,8 +131,11 @@ pub fn part2(input: Input) -> Definitely<i32> {
             // We need to find part adjacent part numbers. We search the 8
             // adjacent locations, and (based on the assumption that all part
             // numbrs are no more than 5 digits wide) search backwards a few
-            // spaces those 5. We can reuse the `compute_adjacencies` to create
-            // a search box.
+            // spaces those 5.
+            //
+            // We'll confirm that every candidate part number is actually
+            // adjacent to the gear, so it's okay if the candidate set is a bit
+            // too large, so long as it never has false negatives.
             let mut nearby_parts = [
                 LocationRange::<Row>::rooted(gear_location.left(5).above(1), Columns(7)),
                 LocationRange::<Row>::rooted(gear_location.left(5), Columns(7)),
