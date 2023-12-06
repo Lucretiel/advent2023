@@ -137,9 +137,9 @@ pub fn part2(input: Input) -> Definitely<i32> {
             // adjacent to the gear, so it's okay if the candidate set is a bit
             // too large, so long as it never has false negatives.
             let mut nearby_parts = [
-                LocationRange::<Row>::rooted(gear_location.left(5).above(1), Columns(7)),
-                LocationRange::<Row>::rooted(gear_location.left(5), Columns(7)),
-                LocationRange::<Row>::rooted(gear_location.left(5).below(1), Columns(7)),
+                gear_location.left(5).above(1).span_over(Columns(7)),
+                gear_location.left(5).span_over(Columns(7)),
+                gear_location.left(5).below(1).span_over(Columns(7)),
             ]
             .into_iter()
             .flatten()
