@@ -10,6 +10,7 @@ dependencies = [
  "brownstone",
  "clap",
  "enum-map",
+ "gridly",
  "itertools",
  "joinery 3.1.0",
  "lazy_format",
@@ -233,6 +234,12 @@ dependencies = [
  "libc",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "gridly"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69b5f96df7f1eda939ff0ef33148e029e281225507e7cc81a974ae11f8b405c9"
 
 [[package]]
 name = "heck"

@@ -8,6 +8,7 @@ use std::{
 };
 
 use brownstone::move_builder::{ArrayBuilder, PushResult};
+use gridly::location::{Column, Row};
 use nom::{error::ParseError, IResult, Parser};
 use nom_supreme::{error::ErrorTree, tag::TagError};
 
@@ -222,6 +223,24 @@ pub trait IterExt: Iterator + Sized {
             iterator: self,
             error: destination,
         }
+    }
+
+    fn with_coordinate<C: gridly::location::Component>(
+        self,
+        root: C,
+    ) -> EnumerateCoordinate<Self, C> {
+        EnumerateCoordinate {
+            iter: self,
+            coordiante: root,
+        }
+    }
+
+    fn with_rows(self, row: Row) -> EnumerateCoordinate<Self, Row> {
+        self.with_coordinate(row)
+    }
+
+    fn with_columns(self, column: Column) -> EnumerateCoordinate<Self, Column> {
+        self.with_coordinate(column)
     }
 }
 
@@ -502,3 +521,49 @@ where
 }
 
 pub type ITResult<I, O> = IResult<I, O, ErrorTree<I>>;
+
+#[derive(Debug, Clone)]
+pub struct EnumerateCoordinate<I, C> {
+    iter: I,
+    coordiante: C,
+}
+
+impl<I, C> Iterator for EnumerateCoordinate<I, C>
+where
+    I: Iterator,
+    C: gridly::location::Component,
+{
+    type Item = (C, I::Item);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.iter.next()?;
+        let coordiante = self.coordiante;
+        self.coordiante = coordiante.add_distance(1);
+
+        Some((coordiante, item))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let item = self.iter.nth(n)?;
+        let coordiante = self.coordiante.add_distance(n as isize);
+        self.coordiante = coordiante.add_distance(1);
+
+        Some((coordiante, item))
+    }
+
+    fn fold<B, F>(self, init: B, mut func: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.iter
+            .fold((init, self.coordiante), |(accum, coordiante), item| {
+                (func(accum, (coordiante, item)), coordiante.add_distance(1))
+            })
+            .0
+    }
+}

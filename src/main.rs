@@ -12,6 +12,7 @@ use std::{
 
 use anyhow::Context;
 use clap::Parser;
+use lazy_format::lazy_format;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
@@ -66,6 +67,9 @@ struct Args {
     #[arg(short, long)]
     part: Part,
 
+    #[arg(short = 'v', long)]
+    show_input: bool,
+
     /// If given, read input from this file
     #[arg(short, long, group = "input")]
     file: Option<PathBuf>,
@@ -84,7 +88,7 @@ fn main() -> anyhow::Result<()> {
             let mut buf = String::new();
             match args.file {
                 Some(file) => File::open(&file)
-                    .with_context(|| format!("failed to open file: {:?}", file.display()))?
+                    .context(lazy_format!("failed to open file: {:?}", file.display()))?
                     .read_to_string(&mut buf)
                     .context("failed to read puzzle input from file")?,
                 None => io::stdin()
@@ -95,5 +99,5 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    run_solution(args.day, args.part, &buf)
+    run_solution(args.day, args.part, &buf, args.show_input)
 }

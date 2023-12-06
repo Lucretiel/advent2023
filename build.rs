@@ -68,6 +68,12 @@ fn main() {
             lazy_format!(
                 "(Day::Day{day}, Part::Part{part}) => input
                     .try_into()
+                    .map(|input| {{
+                        if show_input {{
+                            eprintln!(\"Parsed input:\n{{input:#?}}\");
+                        }}
+                        input
+                    }})
                     .context(\"failed to parse input\")
                     .and_then(|input| day{day}::part{part}(input).context(\"failed to compute solution after successful parse\"))
                     .context(\"failed to solve day {day}, part {part}\")
@@ -100,7 +106,7 @@ fn main() {
         }}
 
 
-        fn run_solution(day: Day, part: Part, input: &str) -> anyhow::Result<()> {{
+        fn run_solution(day: Day, part: Part, input: &str, show_input: bool) -> anyhow::Result<()> {{
             match (day, part) {{
                 {solver_match_arms}
             }}

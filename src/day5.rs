@@ -105,6 +105,7 @@ fn parse_category(input: &str) -> ITResult<&str, Category<'_>> {
     alpha1.map(Category).parse(input)
 }
 
+#[derive(Debug)]
 struct MappingRule<'a> {
     input: Category<'a>,
     output: Category<'a>,
@@ -123,6 +124,7 @@ fn parse_mapping_rule(input: &str) -> ITResult<&str, MappingRule<'_>> {
     .parse(input)
 }
 
+#[derive(Debug)]
 struct MappingRules<'a> {
     rules: Vec<MappingRule<'a>>,
 }
@@ -169,6 +171,7 @@ fn parse_input(input: &str) -> ITResult<&str, Input<'_>> {
     .parse(input)
 }
 
+#[derive(Debug)]
 pub struct Input<'a> {
     seeds: Vec<i64>,
     rules: MappingRules<'a>,

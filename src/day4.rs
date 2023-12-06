@@ -1,9 +1,5 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    convert::Infallible,
-};
+use std::collections::{BTreeMap, HashSet};
 
-use itertools::Itertools;
 use nom::{
     branch::alt,
     character::complete::{char, digit1, space0, space1},
@@ -51,6 +47,7 @@ where
     .parse(input)
 }
 
+#[derive(Debug)]
 struct CardContents {
     winning_values: HashSet<Value>,
     given_values: HashSet<Value>,
@@ -87,6 +84,7 @@ fn parse_input(input: &str) -> IResult<&str, Input, ErrorTree<&str>> {
     parse_card_list.map(|cards| Input { cards }).parse(input)
 }
 
+#[derive(Debug)]
 pub struct Input {
     cards: BTreeMap<CardId, CardContents>,
 }

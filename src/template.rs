@@ -7,6 +7,7 @@ fn parse_input(input: &str) -> IResult<&str, Input<'_>, ErrorTree<&str>> {
     Ok(("", Input { raw: input }))
 }
 
+#[derive(Debug)]
 pub struct Input<'a> {
     raw: &'a str,
 }
