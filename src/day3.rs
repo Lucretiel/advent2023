@@ -74,6 +74,17 @@ impl From<&str> for Input {
     }
 }
 
+/// Create an iterator over all the locations (including diagonals) that are
+/// adjacent to the rectangle described by the root and the width:
+///
+/// ```text
+/// aaaaaa
+/// ar...a
+/// aaaaaa
+/// ```
+///
+/// given that `r` is the `root`, and `.` is the locations to its right in the
+/// width, return all of the `a` locations, in an unspecified order.
 fn compute_adjacencies(root: Location, width: Columns) -> impl Iterator<Item = Location> {
     let left_spot = root.step(Left);
     let base1 = left_spot.step(Up);
