@@ -1,7 +1,6 @@
 use anyhow::Context;
 use itertools::{process_results, Itertools};
 use lazy_format::lazy_format;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 #[derive(Debug)]
 struct Race {
