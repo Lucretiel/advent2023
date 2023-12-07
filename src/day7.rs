@@ -1,4 +1,4 @@
-use enum_map::{Enum, EnumMap};
+use enum_map::Enum;
 use nom::{
     branch::alt,
     character::complete::{char, digit1, multispace0, space1},
@@ -91,7 +91,7 @@ impl Hand {
                 .iter()
                 .map(|(_card, count)| count)
                 .fold([0; 5], |mut map, count| {
-                    map[count - 1] += 1;
+                    map[count.get() - 1] += 1;
                     map
                 });
 
@@ -108,22 +108,22 @@ impl Hand {
 
     fn evaluate_joker(&self) -> Category {
         // Compute, for each card (besides jokers), how many of that card are present
-        let counts: EnumMap<Card, u8> = self
+        let counts: EnumCounter<Card> = self
             .cards
             .iter()
             .copied()
             .filter(|&card| card != Card::Jack)
-            .fold(EnumMap::default(), |mut map, card| {
-                map[card] += 1;
-                map
-            });
+            .collect();
 
-        // Identify the card that there are the most of
-        let (best_card, _) = counts
+        // Identify the card that there are the most of. Arbitrarily prefer
+        // the highest-ranked card if there's a tie (though it shouldn't matter
+        // in practice).
+        let best_card = counts
             .iter()
-            .rev()
-            .max_by_key(|(_card, &count)| count)
-            .expect("there are definitely at least 1 card");
+            .max_by_key(|&(card, count)| (count, card.joker_key()))
+            .map(|(card, _count)| card)
+            // If there are *only* jokers, prefer the Ace
+            .unwrap_or(Card::Ace);
 
         // Transform all jokers into that card
         let modified_hand = Hand {

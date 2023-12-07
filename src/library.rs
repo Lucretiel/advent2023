@@ -11,6 +11,7 @@ use std::{
     iter::FusedIterator,
     marker::PhantomData,
     mem,
+    num::NonZeroUsize,
     ops::ControlFlow,
 };
 
@@ -211,11 +212,10 @@ impl<T, Store: CounterStore<Item = T>> Counter<T, Store> {
     }
 
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = (Store::IterItem<'_>, usize)> + Clone {
+    pub fn iter(&self) -> impl Iterator<Item = (Store::IterItem<'_>, NonZeroUsize)> + Clone {
         self.counts
             .iter()
-            .map(|(key, &count)| (key, count))
-            .filter(|&(_, count)| count > 0)
+            .filter_map(|(item, &count)| NonZeroUsize::new(count).map(|count| (item, count)))
     }
 
     #[inline]
@@ -227,9 +227,9 @@ impl<T, Store: CounterStore<Item = T>> Counter<T, Store> {
 
     /// Return an array of the `N` most plentiful items in the `Counter`. They
     /// are guaranteed to be sorted from most to least plentiful. Returns `None`
-    /// if there are fewer than `N` items in the Counter.
+    /// if there are fewer than `N` unique items in the Counter.
     #[must_use]
-    pub fn top<const N: usize>(&self) -> Option<[(Store::IterItem<'_>, usize); N]> {
+    pub fn top<const N: usize>(&self) -> Option<[(Store::IterItem<'_>, NonZeroUsize); N]> {
         let mut iter = self.iter();
         let mut buffer = try_build_iter(&mut iter)?;
 

@@ -128,5 +128,5 @@ pub fn part2(input: Input) -> Definitely<usize> {
         );
     }
 
-    Ok(card_counts.iter().map(|(_, count)| count).sum())
+    Ok(card_counts.iter().map(|(_, count)| count.get()).sum())
 }
