@@ -167,6 +167,7 @@ fn parse_input(input: &str) -> IResult<&str, Input, ErrorTree<&str>> {
         .map(|plays| Input { plays })
         .parse(input)
 }
+
 impl TryFrom<&str> for Input {
     type Error = ErrorTree<nom_supreme::final_parser::Location>;
 
