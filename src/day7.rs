@@ -1,11 +1,13 @@
 use enum_map::{Enum, EnumMap};
-use nom::character::complete::{digit1, multispace0, space1};
-use nom::combinator::eof;
-use nom::{branch::alt, character::complete::char};
-use nom::{IResult, Parser};
-use nom_supreme::multi::collect_separated_terminated;
-use nom_supreme::ParserExt;
-use nom_supreme::{error::ErrorTree, final_parser::final_parser};
+use nom::{
+    branch::alt,
+    character::complete::{char, digit1, multispace0, space1},
+    combinator::eof,
+    IResult, Parser,
+};
+use nom_supreme::{
+    error::ErrorTree, final_parser::final_parser, multi::collect_separated_terminated, ParserExt,
+};
 
 use crate::library::{EnumCounter, ITResult};
 use crate::parser;
