@@ -12,7 +12,7 @@ use nom_supreme::{
 };
 
 use crate::{
-    library::{split_parser, Counter, Definitely},
+    library::{counter::Counter, split_parser, Definitely},
     parser,
 };
 

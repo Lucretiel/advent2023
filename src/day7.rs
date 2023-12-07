@@ -9,7 +9,7 @@ use nom_supreme::{
     error::ErrorTree, final_parser::final_parser, multi::collect_separated_terminated, ParserExt,
 };
 
-use crate::library::{EnumCounter, ITResult};
+use crate::library::{counter::EnumCounter, ITResult};
 use crate::parser;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Enum)]
