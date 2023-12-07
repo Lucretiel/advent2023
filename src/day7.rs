@@ -89,7 +89,7 @@ impl Hand {
                 .iter()
                 .map(|(_card, count)| count)
                 .fold([0; 5], |mut map, count| {
-                    map[(count - 1) as usize] += 1;
+                    map[count - 1] += 1;
                     map
                 });
 

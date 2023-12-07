@@ -206,13 +206,11 @@ impl<T, Store: CounterStore<Item = T>> Counter<T, Store> {
     }
 
     #[inline]
-    #[must_use]
     pub fn items(&self) -> impl Iterator<Item = Store::IterItem<'_>> + Clone {
         self.iter().map(|(item, _count)| item)
     }
 
     #[inline]
-    #[must_use]
     pub fn iter(&self) -> impl Iterator<Item = (Store::IterItem<'_>, usize)> + Clone {
         self.counts
             .iter()
@@ -234,13 +232,19 @@ impl<T, Store: CounterStore<Item = T>> Counter<T, Store> {
     pub fn top<const N: usize>(&self) -> Option<[(Store::IterItem<'_>, usize); N]> {
         let mut iter = self.iter();
         let mut buffer = try_build_iter(&mut iter)?;
-        buffer.sort_unstable_by_key(|&(_, count)| Reverse(count));
+
+        if N > 1 {
+            buffer.sort_unstable_by_key(|&(_, count)| Reverse(count));
+        }
 
         iter.for_each(|(item, count)| {
             if let Some(last) = buffer.last_mut() {
                 if last.1 < count {
                     *last = (item, count);
-                    buffer.sort_unstable_by_key(|&(_, count)| Reverse(count))
+
+                    if N > 1 {
+                        buffer.sort_unstable_by_key(|&(_, count)| Reverse(count));
+                    }
                 }
             }
         });
