@@ -3,16 +3,23 @@
 pub mod dynamic;
 
 use std::{
-    cmp::Reverse, collections::HashMap, convert::Infallible, hash::Hash, iter::FusedIterator, mem,
+    borrow::Borrow,
+    cmp::Reverse,
+    collections::{btree_map, hash_map, BTreeMap, HashMap},
+    convert::Infallible,
+    hash::Hash,
+    iter::FusedIterator,
+    marker::PhantomData,
+    mem,
     ops::ControlFlow,
 };
 
 use brownstone::move_builder::{ArrayBuilder, PushResult};
+use enum_map::{EnumArray, EnumMap};
 use gridly::location::{Column, Row};
+use itertools::Itertools;
 use nom::{error::ParseError, IResult, Parser};
 use nom_supreme::{error::ErrorTree, tag::TagError};
-
-use self::dynamic::SubtaskStore;
 
 #[macro_export]
 macro_rules! express {
@@ -27,90 +34,255 @@ macro_rules! express {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Counter<T: Hash + Eq> {
-    counts: HashMap<T, usize>,
+pub trait CounterStore: Sized {
+    type Item;
+
+    type IterItem<'a>: Borrow<Self::Item>
+    where
+        Self: 'a;
+
+    type Iter<'a>: Iterator<Item = (Self::IterItem<'a>, &'a usize)> + Clone
+    where
+        Self::Item: 'a,
+        Self: 'a;
+
+    #[must_use]
+    fn new() -> Self;
+
+    #[must_use]
+    fn get(&self, key: &Self::Item) -> usize;
+
+    #[must_use]
+    fn get_mut(&mut self, key: Self::Item) -> &mut usize;
+
+    #[must_use]
+    fn len(&self) -> usize;
+
+    #[must_use]
+    fn iter(&self) -> Self::Iter<'_>;
 }
 
-impl<T: Hash + Eq> Counter<T> {
+impl<T: Hash + Eq> CounterStore for HashMap<T, usize> {
+    type Item = T;
+    type IterItem<'a> = &'a T where T: 'a;
+    type Iter<'a> = hash_map::Iter<'a, T, usize> where T: 'a;
+
+    #[inline]
+    #[must_use]
+    fn new() -> Self {
+        HashMap::new()
+    }
+
+    #[inline]
+    #[must_use]
+    fn get(&self, key: &Self::Item) -> usize {
+        self.get(key).copied().unwrap_or(0)
+    }
+
+    #[inline]
+    #[must_use]
+    fn get_mut(&mut self, key: Self::Item) -> &mut usize {
+        self.entry(key).or_default()
+    }
+
+    #[inline]
+    #[must_use]
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    #[must_use]
+    fn iter(&self) -> Self::Iter<'_> {
+        self.iter()
+    }
+}
+
+impl<T: Ord> CounterStore for BTreeMap<T, usize> {
+    type Item = T;
+    type IterItem<'a> = &'a T where T: 'a;
+    type Iter<'a> = btree_map::Iter<'a, T, usize> where T: 'a;
+
+    #[inline]
+    #[must_use]
+    fn new() -> Self {
+        BTreeMap::new()
+    }
+
+    #[inline]
+    #[must_use]
+    fn get(&self, key: &Self::Item) -> usize {
+        self.get(key).copied().unwrap_or(0)
+    }
+
+    #[inline]
+    #[must_use]
+    fn get_mut(&mut self, key: Self::Item) -> &mut usize {
+        self.entry(key).or_default()
+    }
+
+    #[inline]
+    #[must_use]
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    #[must_use]
+
+    fn iter(&self) -> Self::Iter<'_> {
+        self.iter()
+    }
+}
+
+impl<T: EnumArray<usize> + Copy> CounterStore for EnumMap<T, usize> {
+    type Item = T;
+    type IterItem<'a> = T where T: 'a;
+    type Iter<'a> = enum_map::Iter<'a, T, usize> where T: 'a;
+
+    #[inline]
+    #[must_use]
+    fn new() -> Self {
+        Self::default()
+    }
+
+    #[inline]
+    #[must_use]
+    fn get(&self, key: &Self::Item) -> usize {
+        self[*key]
+    }
+
+    #[inline]
+    #[must_use]
+    fn get_mut(&mut self, key: Self::Item) -> &mut usize {
+        &mut self[key]
+    }
+
+    #[inline]
+    #[must_use]
+    fn len(&self) -> usize {
+        self.iter().filter(|(_, &count)| count > 0).count()
+    }
+
+    #[inline]
+    #[must_use]
+    fn iter(&self) -> Self::Iter<'_> {
+        self.iter()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Counter<T, Store: CounterStore<Item = T> = HashMap<T, usize>> {
+    counts: Store,
+    phantom: PhantomData<T>,
+}
+
+impl<T, Store: CounterStore<Item = T>> Counter<T, Store> {
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            counts: HashMap::new(),
+            counts: Store::new(),
+            phantom: PhantomData,
         }
     }
 
-    pub fn with_capacity(size: usize) -> Self {
-        Self {
-            counts: HashMap::with_capacity(size),
-        }
-    }
-
+    #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.counts.len()
     }
 
-    pub fn contains(&self, value: &T) -> bool {
-        self.counts.contains(value)
+    #[inline]
+    #[must_use]
+    pub fn contains(&self, value: &Store::Item) -> bool {
+        self.get(value) > 0
     }
 
-    pub fn get(&self, value: &T) -> usize {
-        self.counts.get(value).copied().unwrap_or(0)
+    #[inline]
+    #[must_use]
+    pub fn get(&self, value: &Store::Item) -> usize {
+        self.counts.get(value)
     }
 
-    pub fn items(&self) -> impl FusedIterator<Item = &T> + ExactSizeIterator + Clone {
-        self.counts.keys()
+    #[inline]
+    #[must_use]
+    pub fn items(&self) -> impl Iterator<Item = Store::IterItem<'_>> + Clone {
+        self.iter().map(|(item, _count)| item)
     }
 
-    pub fn iter(&self) -> impl FusedIterator<Item = (&T, usize)> + ExactSizeIterator + Clone {
-        self.counts.iter().map(|(key, &count)| (key, count))
+    #[inline]
+    #[must_use]
+    pub fn iter(&self) -> impl Iterator<Item = (Store::IterItem<'_>, usize)> + Clone {
+        self.counts
+            .iter()
+            .map(|(key, &count)| (key, count))
+            .filter(|&(_, count)| count > 0)
     }
 
-    pub fn add(&mut self, item: T, count: usize) {
+    #[inline]
+    pub fn add(&mut self, item: Store::Item, count: usize) {
         if count > 0 {
-            *self.counts.entry(item).or_insert(0) += count
+            *self.counts.get_mut(item) += count;
         }
     }
 
-    pub fn top<const N: usize>(&self) -> Option<[(&T, usize); N]> {
-        let mut iter = self.counts.iter().map(|(key, &value)| (key, value));
+    /// Return an array of the `N` most plentiful items in the `Counter`. They
+    /// are guaranteed to be sorted from most to least plentiful. Returns `None`
+    /// if there are fewer than `N` items in the Counter.
+    #[must_use]
+    pub fn top<const N: usize>(&self) -> Option<[(Store::IterItem<'_>, usize); N]> {
+        let mut iter = self.iter();
         let mut buffer = try_build_iter(&mut iter)?;
         buffer.sort_unstable_by_key(|&(_, count)| Reverse(count));
 
         iter.for_each(|(item, count)| {
-            let Some(last) = buffer.last_mut() else {
-                return;
-            };
-            if last.1 < count {
-                *last = (item, count);
-
-                buffer.sort_unstable_by_key(|&(_, count)| Reverse(count));
+            if let Some(last) = buffer.last_mut() {
+                if last.1 < count {
+                    *last = (item, count);
+                    buffer.sort_unstable_by_key(|&(_, count)| Reverse(count))
+                }
             }
         });
 
         Some(buffer)
     }
+
+    #[inline]
+    #[must_use]
+    pub fn store(&self) -> &Store {
+        &self.counts
+    }
 }
 
-impl<T: Eq + Hash> Default for Counter<T> {
+impl<T, Store: CounterStore<Item = T>> Default for Counter<T, Store> {
+    #[inline]
+    #[must_use]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Hash + Eq> Extend<(T, usize)> for Counter<T> {
+impl<T, Store: CounterStore<Item = T>> Extend<(T, usize)> for Counter<T, Store> {
+    #[inline]
     fn extend<I: IntoIterator<Item = (T, usize)>>(&mut self, iter: I) {
         iter.into_iter()
             .for_each(|(item, count)| self.add(item, count))
     }
 }
 
-impl<T: Hash + Eq> Extend<T> for Counter<T> {
+impl<T: Eq, Store: CounterStore<Item = T>> Extend<T> for Counter<T, Store> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        self.extend(iter.into_iter().map(|item| (item, 1)))
+        self.extend(iter.into_iter().map(|item| (item, 1)).coalesce(
+            |(lhs, l_count), (rhs, r_count)| match lhs == rhs {
+                true => Ok((lhs, l_count + r_count)),
+                false => Err(((lhs, l_count), (rhs, r_count))),
+            },
+        ));
     }
 }
 
-impl<T: Hash + Eq, U> FromIterator<U> for Counter<T>
+impl<T, Store: CounterStore<Item = T>, U> FromIterator<U> for Counter<T, Store>
 where
     Self: Extend<U>,
 {
@@ -120,6 +292,9 @@ where
         this
     }
 }
+
+pub type HashCounter<T> = Counter<T, HashMap<T, usize>>;
+pub type EnumCounter<T> = Counter<T, EnumMap<T, usize>>;
 
 #[derive(Debug, Default, Clone)]
 pub struct Chunks<I, const N: usize> {
