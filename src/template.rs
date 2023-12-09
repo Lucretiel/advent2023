@@ -1,15 +1,16 @@
 use std::convert::Infallible;
 
-use nom::IResult;
 use nom_supreme::{error::ErrorTree, final_parser::final_parser};
 
-fn parse_input(input: &str) -> IResult<&str, Input<'_>, ErrorTree<&str>> {
-    Ok(("", Input { raw: input }))
-}
+use crate::library::ITResult;
 
 #[derive(Debug)]
 pub struct Input<'a> {
     raw: &'a str,
+}
+
+fn parse_input(input: &str) -> ITResult<&str, Input<'_>> {
+    Ok(("", Input { raw: input }))
 }
 
 impl<'a> TryFrom<&'a str> for Input<'a> {
