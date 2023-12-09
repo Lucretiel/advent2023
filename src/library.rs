@@ -256,6 +256,28 @@ where
             State::Done => (0, Some(0)),
         }
     }
+
+    fn fold<B, F>(mut self, init: B, mut func: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        let buffer = match self.state {
+            State::Begin => match try_build_iter(&mut self.iter) {
+                None => return init,
+                Some(buffer) => buffer,
+            },
+            State::Buffered(buffer) => buffer,
+            State::Done => return init,
+        };
+
+        let (accum, buffer) = self.iter.fold((init, buffer), |(accum, buffer), item| {
+            let new_buffer = build_iter(buffer[1..].iter().cloned().chain([item]));
+            (func(accum, buffer), new_buffer)
+        });
+
+        func(accum, buffer)
+    }
 }
 
 impl<I: Iterator, const N: usize> FusedIterator for Windows<I, N> where I::Item: Clone {}
