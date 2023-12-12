@@ -7,10 +7,11 @@ name = "advent2023"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "brownstone",
+ "brownstone 3.0.0",
  "clap",
  "enum-map",
  "gridly",
+ "gridly_grids",
  "itertools",
  "joinery 3.1.0",
  "lazy_format",
@@ -101,6 +102,15 @@ name = "bitflags"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
+
+[[package]]
+name = "brownstone"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "030ea61398f34f1395ccbeb046fb68c87b631d1f34567fed0f0f11fa35d18d8d"
+dependencies = [
+ "arrayvec",
+]
 
 [[package]]
 name = "brownstone"
@@ -242,6 +252,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cc930180cd2a5c16ce70621fe147c712f7713541b3388b11585aa2b5e640d9e"
 
 [[package]]
+name = "gridly_grids"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d27433ac1f006d9b02c164c29e612341d6af4ae440902df377e600766b4909c9"
+dependencies = [
+ "brownstone 1.1.0",
+ "gridly",
+]
+
+[[package]]
 name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -329,7 +349,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bd3ae6c901f1959588759ff51c95d24b491ecb9ff91aa9c2ef4acc5b1dcab27"
 dependencies = [
- "brownstone",
+ "brownstone 3.0.0",
  "indent_write",
  "joinery 2.1.0",
  "memchr",
