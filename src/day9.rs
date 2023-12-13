@@ -1,8 +1,6 @@
-use std::convert::Infallible;
-
 use itertools::Itertools;
 use nom::{
-    character::complete::{char, digit1, multispace0, space1},
+    character::complete::{char, digit1, space1},
     combinator::{eof, success},
     Parser,
 };
@@ -30,10 +28,10 @@ impl Sample {
 }
 
 fn extrapolate_end(data: &[i64]) -> i64 {
-    match data {
-        &[] => 0,
-        &[head, ref tail @ ..] if tail.iter().all(|&value| value == head) => head,
-        &[.., last] => {
+    match *data {
+        [] => 0,
+        [head, ref tail @ ..] if tail.iter().all(|&value| value == head) => head,
+        [.., last] => {
             let deltas = data
                 .iter()
                 .copied()
@@ -48,10 +46,10 @@ fn extrapolate_end(data: &[i64]) -> i64 {
 }
 
 fn extrapolate_front(data: &[i64]) -> i64 {
-    match data {
-        &[] => 0,
-        &[head, ref tail @ ..] if tail.iter().all(|&value| value == head) => head,
-        &[head, ..] => {
+    match *data {
+        [] => 0,
+        [head, ref tail @ ..] if tail.iter().all(|&value| value == head) => head,
+        [head, ..] => {
             let deltas = data
                 .iter()
                 .copied()

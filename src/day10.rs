@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use anyhow::Context;
 use gridly::prelude::*;
 use gridly_grids::VecGrid;
@@ -68,6 +66,16 @@ pub struct Input {
     map: VecGrid<Option<Cell>>,
 }
 
+impl Input {
+    fn start_location(&self) -> Option<Location> {
+        self.map.rows().iter().find_map(|row| {
+            row.iter_with_locations()
+                .find(|&(_loc, &cell)| matches!(cell, Some(Cell::Start)))
+                .map(|(loc, _cell)| loc)
+        })
+    }
+}
+
 impl TryFrom<&str> for Input {
     type Error = anyhow::Error;
 
@@ -82,16 +90,13 @@ impl TryFrom<&str> for Input {
     }
 }
 
-pub fn part1(input: Input) -> anyhow::Result<i32> {
+fn trace_map<T>(
+    input: &Input,
+    mut state: T,
+    step_func: impl Fn(T, Direction, Location, Pipe) -> T,
+) -> anyhow::Result<T> {
     let start_location = input
-        .map
-        .rows()
-        .iter()
-        .find_map(|row| {
-            row.iter_with_locations()
-                .find(|&(_loc, &cell)| matches!(cell, Some(Cell::Start)))
-                .map(|(loc, _cell)| loc)
-        })
+        .start_location()
         .context("No start location in input")?;
 
     let (mut step_direction, mut current_location, mut current_pipe) = EACH_DIRECTION
@@ -114,9 +119,9 @@ pub fn part1(input: Input) -> anyhow::Result<i32> {
         })
         .context("no pipes connected to the start location")?;
 
-    let mut distance = 1;
-
     loop {
+        state = step_func(state, step_direction, current_location, current_pipe);
+
         step_direction = current_pipe
             .directions()
             .iter()
@@ -126,8 +131,6 @@ pub fn part1(input: Input) -> anyhow::Result<i32> {
 
         current_location += step_direction;
 
-        distance += 1;
-
         let current_cell = input
             .map
             .get(current_location)
@@ -136,14 +139,26 @@ pub fn part1(input: Input) -> anyhow::Result<i32> {
             .context("pipe led to an empty cell")?;
 
         current_pipe = match current_cell {
-            Cell::Start => break,
+            Cell::Start => break Ok(state),
             Cell::Pipe(pipe) => pipe,
         };
     }
-
-    Ok(distance / 2)
 }
 
-pub fn part2(input: Input) -> anyhow::Result<Infallible> {
-    anyhow::bail!("not implemented yet")
+pub fn part1(input: Input) -> anyhow::Result<i64> {
+    trace_map(&input, 1, |distance, _, _, _| distance + 1).map(|distance| distance / 2)
+}
+
+pub fn part2(input: Input) -> anyhow::Result<i64> {
+    trace_map(
+        &input,
+        (1i64, 0i64),
+        |(area, height), direction, _, _| match direction {
+            Up => (area, height + 1),
+            Down => (area - 1, height - 1),
+            Right => (area + height, height),
+            Left => (area - (height + 1), height),
+        },
+    )
+    .map(|(area, _height)| area.abs())
 }

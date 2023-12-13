@@ -41,7 +41,6 @@ pub trait CounterStore: Sized {
     fn get(&self, key: &Self::Item) -> usize;
 
     /// Add some amount to a given key
-    #[must_use]
     fn add(&mut self, key: Self::Item, count: NonZeroUsize);
 
     /// Get how many unique keys with nonzero counts are in this store
@@ -75,7 +74,6 @@ impl<T: Hash + Eq> CounterStore for HashMap<T, usize> {
     }
 
     #[inline]
-    #[must_use]
     fn add(&mut self, key: Self::Item, count: NonZeroUsize) {
         *self.entry(key).or_default() += count.get();
     }
@@ -116,7 +114,6 @@ impl<T: Ord> CounterStore for BTreeMap<T, usize> {
     }
 
     #[inline]
-    #[must_use]
     fn add(&mut self, key: Self::Item, count: NonZeroUsize) {
         *self.entry(key).or_default() += count.get()
     }
@@ -157,7 +154,6 @@ impl<T: EnumArray<usize> + Copy> CounterStore for EnumMap<T, usize> {
     }
 
     #[inline]
-    #[must_use]
     fn add(&mut self, key: Self::Item, count: NonZeroUsize) {
         self[key] += count.get()
     }
