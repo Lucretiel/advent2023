@@ -1,12 +1,12 @@
 use std::{
-    cmp::Ordering,
+    cmp::{self, Ordering},
     collections::{HashMap, HashSet},
     convert::Infallible,
     fmt::{self, Display},
 };
 
 use anyhow::Context;
-use enum_map::{Enum, EnumMap};
+use enum_map::{enum_map, Enum, EnumMap};
 use itertools::process_results;
 use nom::{
     branch::alt,
@@ -44,23 +44,23 @@ fn parse_property_name(input: &str) -> ITResult<&str, Property> {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Part {
-    ratings: EnumMap<Property, i32>,
+    ratings: EnumMap<Property, i64>,
 }
 
 impl Part {
-    fn rate(&self) -> i32 {
+    fn rate(&self) -> i64 {
         self.ratings.values().copied().sum()
     }
 }
 
-impl Extend<(Property, i32)> for Part {
-    fn extend<T: IntoIterator<Item = (Property, i32)>>(&mut self, iter: T) {
+impl Extend<(Property, i64)> for Part {
+    fn extend<T: IntoIterator<Item = (Property, i64)>>(&mut self, iter: T) {
         iter.into_iter()
             .for_each(|(key, value)| self.ratings[key] = value)
     }
 }
 
-fn parse_property_pair(input: &str) -> ITResult<&str, (Property, i32)> {
+fn parse_property_pair(input: &str) -> ITResult<&str, (Property, i64)> {
     parser! {
         parse_property_name => key,
         char('='),
@@ -143,7 +143,7 @@ fn parse_op(input: &str) -> ITResult<&str, Op> {
 struct Condition {
     property: Property,
     op: Op,
-    value: i32,
+    value: i64,
 }
 
 impl Condition {
@@ -192,6 +192,19 @@ fn parse_conditional_jump(input: &str) -> ITResult<&str, (Condition, Jump<'_>)> 
 struct Block<'a> {
     conditions: Vec<(Condition, Jump<'a>)>,
     unconditional_jump: Jump<'a>,
+}
+
+impl<'a> Block<'a> {
+    pub fn dependencies(&self) -> impl Iterator<Item = BlockLabel<'a>> + '_ {
+        self.conditions
+            .iter()
+            .map(|(_, jump)| jump)
+            .chain([&self.unconditional_jump])
+            .filter_map(|jump| match *jump {
+                Jump::Outcome(_) => None,
+                Jump::Block(block) => Some(block),
+            })
+    }
 }
 
 fn parse_block(input: &str) -> ITResult<&str, Block<'_>> {
@@ -290,7 +303,7 @@ impl<'a> TryFrom<&'a str> for Input<'a> {
     }
 }
 
-pub fn part1(input: Input<'_>) -> anyhow::Result<i32> {
+pub fn part1(input: Input<'_>) -> anyhow::Result<i64> {
     let evaluations = input.parts.iter().map(|part| {
         input
             .hir
@@ -306,6 +319,173 @@ pub fn part1(input: Input<'_>) -> anyhow::Result<i32> {
     })
 }
 
-pub fn part2(_input: Input<'_>) -> anyhow::Result<Infallible> {
-    anyhow::bail!("not implemented yet")
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Bound {
+    min: i64,
+    max: i64,
+}
+
+impl Bound {
+    pub fn new() -> Self {
+        Self { min: 1, max: 4001 }
+    }
+
+    pub fn width(&self) -> i64 {
+        self.max - self.min
+    }
+
+    pub fn apply(self, op: Op, bound: i64) -> Self {
+        match op {
+            Op::Less => Self {
+                min: self.min,
+                max: cmp::min(self.max, bound),
+            },
+            Op::Greater => Self {
+                max: self.max,
+                min: cmp::max(self.min, bound + 1),
+            },
+        }
+    }
+
+    pub fn reject(self, op: Op, bound: i64) -> Self {
+        match op {
+            Op::Less => self.apply(Op::Greater, bound - 1),
+            Op::Greater => self.apply(Op::Less, bound + 1),
+        }
+    }
+
+    pub fn merge(self, rhs: Self) -> Self {
+        let candidate = Self {
+            min: cmp::max(self.min, rhs.min),
+            max: cmp::min(self.max, rhs.max),
+        };
+
+        if candidate.width() < 0 {
+            Self { min: 0, max: 0 }
+        } else {
+            candidate
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct PartConstraint {
+    bounds: EnumMap<Property, Bound>,
+}
+
+impl PartConstraint {
+    pub fn new() -> Self {
+        Self {
+            bounds: EnumMap::from_fn(|_| Bound::new()),
+        }
+    }
+
+    pub fn width(&self) -> i64 {
+        self.bounds.values().map(|bound| bound.width()).product()
+    }
+
+    pub fn apply(self, condition: Condition) -> Self {
+        Self {
+            bounds: EnumMap::from_fn(|property| {
+                let bound = self.bounds[property];
+
+                if property == condition.property {
+                    bound.apply(condition.op, condition.value)
+                } else {
+                    bound
+                }
+            }),
+        }
+    }
+
+    pub fn reject(self, condition: Condition) -> Self {
+        Self {
+            bounds: EnumMap::from_fn(|property| {
+                let bound = self.bounds[property];
+
+                if property == condition.property {
+                    bound.reject(condition.op, condition.value)
+                } else {
+                    bound
+                }
+            }),
+        }
+    }
+
+    pub fn merge(self, rhs: Self) -> Self {
+        Self {
+            bounds: enum_map! {
+                property => self.bounds[property].merge(rhs.bounds[property])
+            },
+        }
+    }
+}
+
+type ConstraintSet = HashSet<PartConstraint>;
+
+pub fn part2(input: Input<'_>) -> anyhow::Result<i64> {
+    let mut computed_constraint_sets: HashMap<BlockLabel<'_>, ConstraintSet> =
+        HashMap::with_capacity(input.hir.blocks.len());
+
+    loop {
+        // Find a block that we haven't computed yet but for which we know
+        // all dependencies. We assume that the chain of blocks forms a DAG.
+        let (&label, block) = input
+            .hir
+            .blocks
+            .iter()
+            .filter(|(label, _block)| !computed_constraint_sets.contains_key(label))
+            .find(|(_label, block)| {
+                block
+                    .dependencies()
+                    .all(|dep| computed_constraint_sets.contains_key(&dep))
+            })
+            .context("Couldn't find an uncomputed block with all known dependencies")?;
+
+        let mut base_constraint = PartConstraint::new();
+        let mut constraint_set = ConstraintSet::new();
+
+        for &(condition, ref jump) in &block.conditions {
+            let local_constraint = base_constraint.apply(condition);
+
+            match jump {
+                Jump::Outcome(Outcome::Accept) => {
+                    constraint_set.insert(local_constraint);
+                }
+                Jump::Outcome(Outcome::Reject) => {}
+                Jump::Block(label) => constraint_set.extend(
+                    computed_constraint_sets
+                        .get(label)
+                        .expect("confirmed that all dependencies exist")
+                        .iter()
+                        .map(|dependency_constraint| dependency_constraint.merge(local_constraint)),
+                ),
+            }
+
+            base_constraint = base_constraint.reject(condition);
+        }
+
+        match block.unconditional_jump {
+            Jump::Outcome(Outcome::Accept) => {
+                constraint_set.insert(base_constraint);
+            }
+            Jump::Outcome(Outcome::Reject) => {}
+            Jump::Block(ref label) => constraint_set.extend(
+                computed_constraint_sets
+                    .get(label)
+                    .expect("confirmed that all dependencies exist")
+                    .iter()
+                    .map(|dependency_constraint| dependency_constraint.merge(base_constraint)),
+            ),
+        }
+
+        if label == BlockLabel("in") {
+            break Ok(constraint_set
+                .iter()
+                .map(|constraint| constraint.width())
+                .sum());
+        } else {
+            computed_constraint_sets.insert(label, constraint_set);
+        }
+    }
 }
