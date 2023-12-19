@@ -1,7 +1,6 @@
 use std::{
     cmp::{self, Ordering},
     collections::{HashMap, HashSet},
-    convert::Infallible,
     fmt::{self, Display},
 };
 
