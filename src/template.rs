@@ -5,26 +5,26 @@ use nom_supreme::{error::ErrorTree, final_parser::final_parser};
 use crate::library::ITResult;
 
 #[derive(Debug)]
-pub struct Input<'a> {
-    raw: &'a str,
+pub struct Input {
+    raw: String,
 }
 
-fn parse_input(input: &str) -> ITResult<&str, Input<'_>> {
+fn parse_input(input: &str) -> ITResult<&str, Input> {
     Ok(("", Input { raw: input }))
 }
 
-impl<'a> TryFrom<&'a str> for Input<'a> {
+impl TryFrom<&str> for Input {
     type Error = ErrorTree<nom_supreme::final_parser::Location>;
 
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         final_parser(parse_input)(value)
     }
 }
 
-pub fn part1(input: Input<'_>) -> anyhow::Result<Infallible> {
+pub fn part1(input: Input) -> anyhow::Result<Infallible> {
     anyhow::bail!("not implemented yet")
 }
 
-pub fn part2(input: Input<'_>) -> anyhow::Result<Infallible> {
+pub fn part2(input: Input) -> anyhow::Result<Infallible> {
     anyhow::bail!("not implemented yet")
 }
